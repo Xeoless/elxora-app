@@ -1,79 +1,70 @@
-export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const https = require('https');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+exports.handler = async (event) => {
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    };
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const body = req.body;
-
-    const API_KEY = process.env.OPENROUTER_API_KEY;
-
-    if (!API_KEY) {
-      console.error('Missing OPENROUTER_API_KEY');
-      return res.status(500).json({ error: 'Server error: API key not configured' });
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
     }
 
-    console.log('Proxy: Starting streaming request to OpenRouter');
-
-    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://elxora.frii.site',
-        'X-Title': 'ElXora Chat'
-      },
-      body: JSON.stringify({
-        model: 'z-ai/glm-4.5-air:free',
-        messages: body.messages,
-        temperature: 0.7,
-        max_tokens: 2048,
-        stream: true
-      })
-    });
-
-    if (!openRouterResponse.ok) {
-      const errorText = await openRouterResponse.text();
-      console.error('OpenRouter error:', openRouterResponse.status, errorText);
-      return res.status(openRouterResponse.status).json({ 
-        error: `OpenRouter error ${openRouterResponse.status}: ${errorText}` 
-      });
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, headers, body: 'Method Not Allowed' };
     }
 
-    // Set streaming headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    const API_KEY = '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';
 
-    // Pipe the web stream correctly in Node.js/Vercel
-    const reader = openRouterResponse.body.getReader();
-    const decoder = new TextDecoder();
+    try {
+        const { messages } = JSON.parse(event.body);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+        const payload = JSON.stringify({
+            model: 'openai/gpt-oss-120b:free',
+            messages,
+            temperature: 0.7,
+            max_tokens: 2048,
+            stream: true
+        });
 
-      const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk);  // Write chunks directly to the response
+        // Use native https module — no fetch needed
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: 'openrouter.ai',
+                path: '/api/v1/chat/completions',
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://magical-conkies-ff9e37.netlify.app',
+                    'X-Title': 'ElXora Chat',
+                    'Content-Length': Buffer.byteLength(payload)
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => resolve({ status: res.statusCode, body: data }));
+            });
+
+            req.on('error', reject);
+            req.write(payload);
+            req.end();
+        });
+
+        return {
+            statusCode: result.status,
+            headers: { ...headers, 'Content-Type': 'text/event-stream' },
+            body: result.body
+        };
+
+    } catch (err) {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: err.message })
+        };
     }
-
-    res.end();  // Close the stream when done
-
-  } catch (error) {
-    console.error('Proxy streaming error:', error.message, error.stack);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Proxy failed: ' + (error.message || 'Unknown error') });
-    } else {
-      res.end();
-    }
-  }
-        }
+};
