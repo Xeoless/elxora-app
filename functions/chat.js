@@ -21,14 +21,13 @@ exports.handler = async (event) => {
         const { messages } = JSON.parse(event.body);
 
         const payload = JSON.stringify({
-            model: 'openai/gpt-oss-120b:free',
+            model: 'meta-llama/llama-3.1-8b-instruct:free',
             messages,
             temperature: 0.7,
             max_tokens: 2048,
             stream: true
         });
 
-        // Use native https module — no fetch needed
         const result = await new Promise((resolve, reject) => {
             const options = {
                 hostname: 'openrouter.ai',
