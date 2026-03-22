@@ -21,7 +21,7 @@ exports.handler = async (event) => {
         const { messages } = JSON.parse(event.body);
 
         const payload = JSON.stringify({
-            model: 'meta-llama/llama-3.1-8b-instruct:free',
+            model: 'z-ai/glm-4.5-air:free',
             messages,
             temperature: 0.7,
             max_tokens: 2048,
