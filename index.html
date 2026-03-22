@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElXora</title>
+    <link rel="icon" type="image/jpeg" href="images/elxora.jpg">
+
+    <!-- EmailJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark-dimmed.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/htmlbars.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/python.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        #app { display: none; }
+
+        /* ── Keyframes ── */
+        @keyframes fadeIn       { from{opacity:0}          to{opacity:1} }
+        @keyframes slideUp      { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideInLeft  { from{opacity:0;transform:translateX(-30px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(30px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes scaleInBounce{ from{opacity:0;transform:scale(0.75)} to{opacity:1;transform:scale(1)} }
+        @keyframes shimmer      { 0%{background-position:-200% center} 100%{background-position:200% center} }
+        @keyframes float        { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes spin         { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes pulse        { 0%,100%{opacity:.4;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
+
+        /* ── Loading ── */
+        #loading { animation: fadeIn 0.5s ease; }
+        .loading-logo {
+            font-size:2.8rem; font-weight:900; letter-spacing:-2px;
+            background:linear-gradient(90deg,#fff 0%,#888 40%,#fff 60%,#888 100%);
+            background-size:200% auto;
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            animation:shimmer 2s linear infinite;
+        }
+        .loading-spinner {
+            width:36px; height:36px; margin:1.5rem auto 0;
+            border:3px solid rgba(255,255,255,.1);
+            border-top-color:#fff; border-radius:50%;
+            animation:spin 0.8s linear infinite;
+        }
+
+        /* ── App ── */
+        #app { animation: fadeIn 0.4s ease forwards; }
+
+        /* ── Sidebar brand shimmer ── */
+        .sidebar-brand {
+            background:linear-gradient(90deg,#fff,#9ca3af,#fff);
+            background-size:200% auto;
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            animation:shimmer 4s linear infinite;
+        }
+
+        /* ── Messages ── */
+        .message { opacity:0; transform:translateY(16px); transition:opacity .4s ease,transform .4s cubic-bezier(.34,1.56,.64,1); }
+        .message.visible { opacity:1; transform:translateY(0); }
+        .message.user-message.visible { animation:slideInRight .4s cubic-bezier(.34,1.56,.64,1) forwards; }
+        .message.ai-message.visible   { animation:slideInLeft  .4s cubic-bezier(.34,1.56,.64,1) forwards; }
+
+        /* ── Typing dots ── */
+        .typing-dots { display:flex; gap:6px; align-items:center; }
+        .dot { width:8px; height:8px; background:currentColor; border-radius:50%; animation:pulse 1.4s infinite; }
+        .dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+
+        /* ── Buttons ── */
+        #send { transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s ease; }
+        #send:hover:not(:disabled) { transform:scale(1.08); box-shadow:0 0 30px rgba(255,255,255,.25); }
+        #send:active:not(:disabled) { transform:scale(0.95); }
+        #new-chat { transition:transform .2s ease,box-shadow .2s ease; }
+        #new-chat:hover { transform:translateY(-2px); box-shadow:0 4px 20px rgba(255,255,255,.12); }
+        #theme-toggle { transition:background .2s ease,transform .2s ease; }
+        #theme-toggle:hover { transform:translateY(-1px); }
+        #logout-btn { transition:transform .2s ease,background .2s; }
+        #logout-btn:hover { transform:scale(1.05); }
+
+        /* ── Input ── */
+        #input { transition:border-color .3s ease,box-shadow .3s ease; }
+        #input:focus { border-color:rgba(255,255,255,.35)!important; box-shadow:0 0 0 3px rgba(255,255,255,.06); }
+
+        /* ── Chat list items ── */
+        #chat-list li { transition:background .2s,transform .2s; animation:slideInLeft .3s ease forwards; }
+        #chat-list li:hover { transform:translateX(4px); }
+
+        /* ── Sidebar ── */
+        #sidebar { transition:transform .4s cubic-bezier(.4,0,.2,1); }
+
+        /* ── User avatar ── */
+        #user-icon { animation:float 4s ease-in-out infinite; transition:transform .3s ease; }
+        #user-icon:hover { transform:scale(1.1) translateY(-4px); }
+
+        /* ── Code boxes ── */
+        .code-box {
+            position:relative; margin:1.5rem 0; border-radius:.75rem; overflow:hidden;
+            border:1px solid rgba(255,255,255,.08); background:#0d1117;
+            box-shadow:0 4px 12px rgba(0,0,0,.4); animation:fadeIn .4s ease;
+        }
+        .code-header {
+            position:absolute; top:0; right:0; left:0; height:2.5rem;
+            background:rgba(0,0,0,.4); display:flex; align-items:center;
+            justify-content:flex-end; padding:0 .75rem; font-size:.8rem; color:#8b949e; user-select:none;
+        }
+        .copy-btn {
+            background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
+            color:#c9d1d9; padding:.25rem .75rem; border-radius:.375rem;
+            cursor:pointer; font-size:.75rem; transition:all .2s;
+        }
+        .copy-btn:hover { background:rgba(255,255,255,.15); border-color:rgba(255,255,255,.25); }
+        .copy-btn.copied { background:#238636; color:white; border-color:#238636; }
+        pre { margin:0!important; padding:3rem 1.5rem 1.25rem 1.5rem; overflow-x:auto; }
+        pre code.hljs { display:block; font-size:.95rem; line-height:1.5; background:transparent!important; padding:0; }
+        textarea:disabled { background:#1f2937; cursor:not-allowed; }
+        button:disabled { opacity:.5; cursor:not-allowed; }
+        .sticky.bottom-0 { animation:slideUp 0.5s ease forwards; }
+
+        /* ── LOGIN MODAL ── */
+        #login-modal { background:rgba(0,0,0,.92); backdrop-filter:blur(16px); animation:fadeIn .35s ease; }
+        .login-card {
+            background:linear-gradient(145deg,#111827,#0d1117);
+            padding:3rem 2.5rem; border-radius:2rem;
+            box-shadow:0 24px 60px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.06);
+            width:100%; max-width:420px; text-align:center;
+            border:1px solid rgba(255,255,255,.1);
+            animation:scaleInBounce 0.5s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .login-logo {
+            font-size:3rem; font-weight:900; letter-spacing:-2px;
+            background:linear-gradient(90deg,#fff 0%,#9ca3af 40%,#fff 60%,#9ca3af 100%);
+            background-size:200% auto;
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            animation:shimmer 3s linear infinite; margin-bottom:.5rem;
+        }
+        .login-subtitle { color:#6b7280; font-size:.95rem; margin-bottom:2.5rem; }
+        .google-btn {
+            display:flex; align-items:center; gap:12px;
+            background:#fff; color:#111; font-weight:600; font-size:1rem;
+            border:none; border-radius:1rem; padding:.9rem 2rem;
+            cursor:pointer; margin:0 auto;
+            transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s ease;
+            animation:slideUp 0.4s 0.15s ease both;
+        }
+        .google-btn:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 10px 30px rgba(255,255,255,.18); }
+        .google-btn:active { transform:scale(.97); }
+        .login-or { color:#374151; font-size:.8rem; margin:1.25rem 0; }
+        .skip-btn {
+            background:none; border:none; color:#4b5563; font-size:.9rem;
+            cursor:pointer; text-decoration:underline;
+            transition:color .2s; animation:slideUp 0.4s 0.25s ease both;
+        }
+        .skip-btn:hover { color:#9ca3af; }
+
+        /* ── AUTH STYLES ── */
+        .auth-fields { display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem; }
+        .auth-input {
+            width:100%; padding:.85rem 1.1rem; background:rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.12); border-radius:.9rem;
+            color:#fff; font-size:.95rem; box-sizing:border-box;
+            transition:border-color .3s, box-shadow .3s;
+            outline:none;
+        }
+        .auth-input:focus { border-color:rgba(255,255,255,.35); box-shadow:0 0 0 3px rgba(255,255,255,.06); }
+        .auth-input::placeholder { color:#4b5563; }
+        .auth-submit-btn {
+            width:100%; padding:.9rem; background:#fff; color:#000;
+            font-weight:700; font-size:1rem; border:none; border-radius:.9rem;
+            cursor:pointer; margin-top:.5rem;
+            transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+        }
+        .auth-submit-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(255,255,255,.15); }
+        .auth-submit-btn:active { transform:scale(.97); }
+        .auth-submit-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+        .auth-or { color:#374151; font-size:.8rem; margin:1rem 0; }
+        .auth-switch-btn {
+            background:none; border:none; color:#6b7280; font-size:.88rem;
+            cursor:pointer; transition:color .2s;
+        }
+        .auth-switch-btn span { color:#9ca3af; text-decoration:underline; }
+        .auth-switch-btn:hover span { color:#fff; }
+        .auth-error {
+            color:#f87171; font-size:.82rem; min-height:1.2rem;
+            margin-bottom:.25rem; text-align:left;
+            animation: fadeIn .3s ease;
+        }
+        .auth-success { color:#34d399; font-size:.82rem; }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen antialiased">
+
+    <!-- Loading screen -->
+    <div id="loading" class="flex flex-col items-center justify-center min-h-screen" style="position:relative;">
+        <div class="loading-logo">ElXora</div>
+        <div class="loading-spinner"></div>
+        <div style="position:absolute;bottom:2.5rem;left:0;right:0;text-align:center;font-size:0.85rem;color:#4b5563;letter-spacing:0.05em;">Made By <span style="color:#9ca3af;font-weight:600;">MrAwo</span></div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="min-h-screen flex flex-col lg:flex-row">
+
+        <!-- Sidebar -->
+        <div id="sidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-80 bg-gray-950 border-r border-gray-800 transform -translate-x-full lg:translate-x-0 overflow-y-auto flex flex-col">
+            <div class="p-6 border-b border-gray-800">
+                <h2 class="text-2xl font-bold tracking-tight sidebar-brand">ElXora Chats</h2>
+            </div>
+            <ul id="chat-list" class="p-4 space-y-2 flex-1"></ul>
+            <div class="p-6 border-t border-gray-800 space-y-3">
+                <button id="new-chat" class="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-gray-200 transition">New Conversation</button>
+                <button id="theme-toggle" class="w-full py-3 border border-gray-700 rounded-xl hover:bg-gray-900 transition">Switch to Light</button>
+            </div>
+            <div id="user-info" class="p-6 flex flex-col items-center gap-4 border-t border-gray-800" style="display:none">
+                <img id="user-icon" class="w-16 h-16 rounded-full border-2 border-gray-700 shadow-md" src="" alt="User Icon">
+                <div class="text-center">
+                    <p id="user-name" class="font-bold text-lg"></p>
+                    <p id="user-email" class="text-sm opacity-70"></p>
+                </div>
+                <button id="logout-btn" class="mt-2 px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition">Log Out</button>
+            </div>
+        </div>
+
+        <div id="overlay" class="fixed inset-0 bg-black/70 z-40 hidden lg:hidden backdrop-blur-sm" onclick="toggleSidebar()"></div>
+
+        <div class="flex-1 flex flex-col">
+            <div class="lg:hidden p-5 bg-gray-950 border-b border-gray-800 flex items-center">
+                <button id="menu-btn" class="text-3xl mr-5 hover:scale-110 transition">&#9776;</button>
+                <h1 class="text-xl font-bold sidebar-brand">Chat with ElXora</h1>
+            </div>
+
+            <div id="messages" class="flex-1 p-6 lg:p-10 overflow-y-auto space-y-8"></div>
+
+            <div class="p-6 border-t border-gray-800 bg-gray-950 sticky bottom-0">
+                <div class="max-w-4xl mx-auto flex gap-4">
+                    <textarea id="input" class="flex-1 p-5 bg-gray-900 border border-gray-800 rounded-2xl resize-none focus:outline-none transition min-h-[60px]" rows="1" placeholder="Hey ElXora, what's up?"></textarea>
+                    <button id="send" class="px-8 py-5 bg-white text-black font-semibold rounded-2xl transition">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div id="login-modal" class="fixed inset-0 flex items-center justify-center z-50 p-4" style="display:none">
+        <div class="login-card" style="max-width:460px;width:100%">
+
+            <!-- LOGIN SCREEN -->
+            <div id="screen-login">
+                <div class="login-logo">ElXora</div>
+                <p class="login-subtitle">Welcome back! Sign in to continue</p>
+                <div class="auth-fields">
+                    <input id="login-email" type="email" placeholder="Email" class="auth-input">
+                    <input id="login-password" type="password" placeholder="Password" class="auth-input">
+                </div>
+                <div id="login-error" class="auth-error"></div>
+                <button id="login-submit-btn" class="auth-submit-btn">Sign In</button>
+                <div class="auth-or">— or —</div>
+                <button class="auth-switch-btn" id="go-register-btn">Don't have an account? <span>Register</span></button>
+                <button class="skip-btn" id="skip-login-btn" style="margin-top:1rem">Continue without signing in</button>
+            </div>
+
+            <!-- REGISTER SCREEN -->
+            <div id="screen-register" style="display:none">
+                <div class="login-logo">ElXora</div>
+                <p class="login-subtitle">Create your account</p>
+                <div class="auth-fields">
+                    <input id="reg-email"    type="email"    placeholder="Email"           class="auth-input">
+                    <input id="reg-username" type="text"     placeholder="Username"         class="auth-input">
+                    <input id="reg-password" type="password" placeholder="Password"         class="auth-input">
+                    <input id="reg-retype"   type="password" placeholder="Retype Password"  class="auth-input">
+                </div>
+                <div id="register-error" class="auth-error"></div>
+                <button id="register-submit-btn" class="auth-submit-btn">Create Account</button>
+                <div class="auth-or">— or —</div>
+                <button class="auth-switch-btn" id="go-login-btn">Already have an account? <span>Sign In</span></button>
+            </div>
+
+            <!-- VERIFY SCREEN -->
+            <div id="screen-verify" style="display:none">
+                <div class="login-logo">ElXora</div>
+                <p class="login-subtitle">Check your email for the 6-digit code</p>
+                <div style="font-size:3rem;margin-bottom:1rem">📧</div>
+                <input id="verify-code" type="text" maxlength="6" placeholder="Enter 6-digit code" class="auth-input" style="text-align:center;font-size:1.5rem;letter-spacing:8px;font-weight:700">
+                <div id="verify-error" class="auth-error"></div>
+                <button id="verify-submit-btn" class="auth-submit-btn">Verify & Create Account</button>
+                <button id="resend-code-btn" class="auth-switch-btn" style="margin-top:.75rem">Didn't get it? <span>Resend code</span></button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // =========================================================
+        // API KEY — change this value to update your OpenRouter key
+        // =========================================================
+        const API_URL  = '/.netlify/functions/chat';
+        // =========================================================
+
+        // ── Highlight.js ──
+        hljs.configure({ languages: ['lua', 'html', 'css', 'javascript', 'python'] });
+        hljs.highlightAll();
+        marked.setOptions({
+            highlight: (code, lang) => {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            },
+            langPrefix: 'hljs language-'
+        });
+
+        // ── Copy button ──
+        document.addEventListener('click', async (e) => {
+            if (!e.target.classList.contains('copy-btn')) return;
+            const btn = e.target;
+            const code = btn.closest('.code-box')?.querySelector('code')?.innerText || '';
+            try { await navigator.clipboard.writeText(code); btn.textContent = 'Copied!'; btn.classList.add('copied'); }
+            catch { btn.textContent = 'Failed'; }
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+
+        // ── EmailJS ──
+        emailjs.init('ZoIYR2qt8M-1y4ac4');
+        const EMAILJS_SERVICE = 'elxora_200012';
+        const EMAILJS_TEMPLATE = 'template_4rr0wp7';
+
+        // ── Boot: animated loading → app ──
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const loading = document.getElementById('loading');
+                loading.style.transition = 'opacity 0.4s ease';
+                loading.style.opacity = '0';
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                    document.getElementById('app').style.display = 'flex';
+                    initElXora();
+                }, 400);
+            }, 900);
+        });
+
+        function initElXora() {
+            const STORAGE = { chats: 'elxora:chats', current: 'elxora:current', theme: 'elxora:theme' };
+
+            let chats = [];
+            let currentId = localStorage.getItem(STORAGE.current);
+            let isDark = localStorage.getItem(STORAGE.theme) !== 'light';
+            let isAiTyping = false;
+            let userProfile = JSON.parse(localStorage.getItem('elxora:user')) || null;
+
+            const inputEl        = document.getElementById('input');
+            const sendBtn        = document.getElementById('send');
+            const sidebar        = document.getElementById('sidebar');
+            const overlay        = document.getElementById('overlay');
+            const menuBtn        = document.getElementById('menu-btn');
+            const newBtn         = document.getElementById('new-chat');
+            const chatList       = document.getElementById('chat-list');
+            const messages       = document.getElementById('messages');
+            const themeBtn       = document.getElementById('theme-toggle');
+            const userInfo       = document.getElementById('user-info');
+            const userIcon       = document.getElementById('user-icon');
+            const userName       = document.getElementById('user-name');
+            const userEmail      = document.getElementById('user-email');
+            const logoutBtn      = document.getElementById('logout-btn');
+            const loginModal     = document.getElementById('login-modal');
+
+
+            document.documentElement.classList.toggle('dark', isDark);
+            document.body.classList.toggle('bg-white', !isDark);
+            document.body.classList.toggle('text-black', !isDark);
+
+            // ── Auth helpers ──
+            function getUsers() { return JSON.parse(localStorage.getItem('elxora:users') || '{}'); }
+            function saveUsers(u) { localStorage.setItem('elxora:users', JSON.stringify(u)); }
+            function showScreen(id) {
+                ['screen-login','screen-register','screen-verify'].forEach(s => {
+                    document.getElementById(s).style.display = s === id ? 'block' : 'none';
+                });
+            }
+            function setError(id, msg) {
+                const el = document.getElementById(id);
+                el.textContent = msg;
+                el.style.display = msg ? 'block' : 'none';
+            }
+
+            let pendingUser = null; // holds register data while waiting for verify
+            let pendingCode = null;
+
+            // ── Switch screens ──
+            document.getElementById('go-register-btn').onclick = () => { setError('login-error',''); showScreen('screen-register'); };
+            document.getElementById('go-login-btn').onclick    = () => { setError('register-error',''); showScreen('screen-login'); };
+
+            // ── Skip login ──
+            document.getElementById('skip-login-btn').onclick = () => {
+                loginModal.style.transition = 'opacity 0.3s ease';
+                loginModal.style.opacity = '0';
+                setTimeout(() => { loginModal.style.display = 'none'; }, 300);
+                loadAndBoot();
+            };
+
+            // ── LOGIN ──
+            document.getElementById('login-submit-btn').onclick = async () => {
+                const email    = document.getElementById('login-email').value.trim().toLowerCase();
+                const password = document.getElementById('login-password').value;
+                setError('login-error', '');
+
+                if (!email || !password) return setError('login-error', 'Please fill in all fields.');
+
+                const users = getUsers();
+                const user  = users[email];
+                if (!user)              return setError('login-error', 'No account found with this email.');
+                if (!user.verified)     return setError('login-error', 'Please verify your email first.');
+                if (user.password !== btoa(password)) return setError('login-error', 'Incorrect password.');
+
+                localStorage.setItem('elxora:user', JSON.stringify({ name: user.username, email: email, picture: '' }));
+                window.location.reload();
+            };
+
+            // ── REGISTER ──
+            document.getElementById('register-submit-btn').onclick = async () => {
+                const email    = document.getElementById('reg-email').value.trim().toLowerCase();
+                const username = document.getElementById('reg-username').value.trim();
+                const password = document.getElementById('reg-password').value;
+                const retype   = document.getElementById('reg-retype').value;
+                const btn      = document.getElementById('register-submit-btn');
+                setError('register-error', '');
+
+                if (!email || !username || !password || !retype) return setError('register-error', 'Please fill in all fields.');
+                if (!/^[^@]+@[^@]+\.[^@]+$/.test(email))         return setError('register-error', 'Please enter a valid email.');
+                if (username.length < 3)                           return setError('register-error', 'Username must be at least 3 characters.');
+                if (password.length < 6)                           return setError('register-error', 'Password must be at least 6 characters.');
+                if (password !== retype)                           return setError('register-error', 'Passwords do not match.');
+
+                const users = getUsers();
+
+                // Check email taken
+                if (users[email]) return setError('register-error', '❌ This email is already registered.');
+
+                // Check username taken
+                const usernameTaken = Object.values(users).some(u => u.username.toLowerCase() === username.toLowerCase());
+                if (usernameTaken) return setError('register-error', '❌ This username is already taken.');
+
+                // Generate 6-digit code
+                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                pendingCode = code;
+                pendingUser = { email, username, password: btoa(password), verified: false };
+
+                btn.disabled = true;
+                btn.textContent = 'Sending code...';
+
+                try {
+                    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+                        to_email: email,
+                        username: username,
+                        code: code
+                    });
+                    showScreen('screen-verify');
+                } catch(e) {
+                    setError('register-error', 'Failed to send email. Check your connection.');
+                    console.error(e);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Create Account';
+                }
+            };
+
+            // ── VERIFY ──
+            document.getElementById('verify-submit-btn').onclick = () => {
+                const entered = document.getElementById('verify-code').value.trim();
+                setError('verify-error', '');
+
+                if (!entered) return setError('verify-error', 'Please enter the code.');
+                if (entered !== pendingCode) return setError('verify-error', '❌ Wrong code. Please try again.');
+
+                // Save verified user
+                const users = getUsers();
+                pendingUser.verified = true;
+                users[pendingUser.email] = pendingUser;
+                saveUsers(users);
+
+                // Auto login
+                localStorage.setItem('elxora:user', JSON.stringify({ name: pendingUser.username, email: pendingUser.email, picture: '' }));
+                window.location.reload();
+            };
+
+            // ── RESEND CODE ──
+            document.getElementById('resend-code-btn').onclick = async () => {
+                if (!pendingUser) return;
+                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                pendingCode = code;
+                try {
+                    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+                        to_email: pendingUser.email,
+                        username: pendingUser.username,
+                        code: code
+                    });
+                    setError('verify-error', '✅ New code sent!');
+                    document.getElementById('verify-error').style.color = '#34d399';
+                } catch(e) {
+                    setError('verify-error', 'Failed to resend. Try again.');
+                }
+            };
+
+            // ── LOGOUT ──
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('elxora:user');
+                window.location.reload();
+            };
+
+            function loadAndBoot() {
+                loadChats();
+                renderList();
+                if (chats.length === 0) createChat();
+                else if (currentId) selectChat(currentId);
+                else selectChat(chats[0].id);
+                updateInputState();
+            }
+
+            function showApp() {
+                if (userProfile) {
+                    loginModal.style.display = 'none';
+                    userInfo.style.display = 'flex';
+                    userInfo.style.animation = 'slideUp 0.5s ease forwards';
+                    userIcon.src = userProfile.picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userProfile.name) + '&background=1f2937&color=fff&size=64';
+                    userName.textContent = userProfile.name || 'User';
+                    userEmail.textContent = userProfile.email || '';
+                    loadAndBoot();
+                } else {
+                    loginModal.style.display = 'flex';
+                }
+            }
+
+            function loadChats() {
+                const key = userProfile ? userProfile.email + ':' + STORAGE.chats : STORAGE.chats;
+                chats = JSON.parse(localStorage.getItem(key)) || [];
+            }
+
+            function saveChats() {
+                const key = userProfile ? userProfile.email + ':' + STORAGE.chats : STORAGE.chats;
+                localStorage.setItem(key, JSON.stringify(chats));
+            }
+
+            function updateInputState() {
+                // Show remaining messages for guests
+                if (!userProfile) {
+                    const remaining = Math.max(0, GUEST_LIMIT - getGuestCount());
+                    inputEl.placeholder = remaining > 0
+                        ? `Hey ElXora, what's up? (${remaining} free message${remaining === 1 ? '' : 's'} left)`
+                        : "Sign in to keep chatting 2014 it's free!";
+                    if (remaining === 0) {
+                        inputEl.disabled = true;
+                        sendBtn.disabled = true;
+                    }
+                }
+                inputEl.disabled = isAiTyping;
+                sendBtn.disabled = isAiTyping;
+            }
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+
+            function createChat() {
+                const id = Date.now().toString();
+                chats.push({ id, title: `Conversation ${chats.length + 1}`, messages: [] });
+                saveChats(); renderList(); selectChat(id);
+            }
+
+            function renderList() {
+                chatList.innerHTML = '';
+                chats.forEach((chat, i) => {
+                    const li = document.createElement('li');
+                    li.style.animationDelay = `${i * 40}ms`;
+                    li.className = `group flex items-center justify-between p-4 rounded-xl cursor-pointer transition ${chat.id === currentId ? 'bg-gray-800' : 'hover:bg-gray-900'}`;
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.textContent = chat.title;
+                    titleSpan.className = 'font-medium flex-1 truncate';
+                    titleSpan.onclick = (e) => { e.stopPropagation(); selectChat(chat.id); };
+
+                    const actions = document.createElement('div');
+                    actions.className = 'flex gap-4 opacity-0 group-hover:opacity-100 transition';
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.innerHTML = '&#9999;&#65039;';
+                    renameBtn.className = 'bg-transparent border-none p-0 hover:scale-110 transition focus:outline-none';
+                    renameBtn.onclick = (e) => { e.stopPropagation(); renameChat(chat.id); };
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '&#128465;&#65039;';
+                    deleteBtn.className = 'bg-transparent border-none p-0 hover:scale-110 transition focus:outline-none';
+                    deleteBtn.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
+
+                    actions.append(renameBtn, deleteBtn);
+                    li.append(titleSpan, actions);
+                    li.onclick = () => selectChat(chat.id);
+                    chatList.appendChild(li);
+                });
+            }
+
+            function selectChat(id) {
+                currentId = id;
+                localStorage.setItem(STORAGE.current, id);
+                const chat = chats.find(c => c.id === id);
+                if (!chat) return;
+                messages.innerHTML = '';
+                chat.messages.forEach(m => addMessage(m.role, m.content));
+                renderList();
+                if (window.innerWidth < 1024) toggleSidebar();
+            }
+
+            function renameChat(id) {
+                const chat = chats.find(c => c.id === id);
+                if (!chat) return;
+                const t = prompt('New name:', chat.title);
+                if (t && t.trim()) { chat.title = t.trim(); saveChats(); renderList(); }
+            }
+
+            function deleteChat(id) {
+                if (!confirm('Delete this conversation?')) return;
+                chats = chats.filter(c => c.id !== id);
+                saveChats();
+                if (currentId === id) {
+                    currentId = chats.length > 0 ? chats[0].id : null;
+                    localStorage.setItem(STORAGE.current, currentId);
+                }
+                renderList();
+                if (currentId) selectChat(currentId);
+                else messages.innerHTML = '<div class="text-gray-500 text-center mt-20">No conversation selected</div>';
+            }
+
+            function formatCode(html) {
+                html = html.replace(/<pre><code class="hljs language-(\w+)"[^>]*>([\s\S]*?)<\/code><\/pre>/g, (_, lang, code) => `
+                    <div class="code-box">
+                        <div class="code-header">
+                            <span class="mr-auto text-sm opacity-80">${lang.toUpperCase()}</span>
+                            <button class="copy-btn">Copy</button>
+                        </div>
+                        <pre><code class="hljs language-${lang}">${code.trim()}</code></pre>
+                    </div>`);
+                html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (_, code) => `
+                    <div class="code-box">
+                        <div class="code-header">
+                            <span class="mr-auto text-sm opacity-80">Code</span>
+                            <button class="copy-btn">Copy</button>
+                        </div>
+                        <pre><code class="hljs plaintext">${code.trim()}</code></pre>
+                    </div>`);
+                return html;
+            }
+
+            function addMessage(role, content) {
+                const isUser = role === 'user';
+                const div = document.createElement('div');
+                div.className = `message flex ${isUser ? 'justify-end user-message' : 'justify-start ai-message'}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-3xl p-6 rounded-3xl prose prose-invert prose-headings:text-white prose-pre:my-4 prose-pre:bg-transparent ${isUser ? 'bg-white text-black' : 'bg-gray-900 border border-gray-800'}`;
+                bubble.innerHTML = isUser ? content.replace(/</g,'&lt;') : formatCode(marked.parse(content));
+
+                div.appendChild(bubble);
+                messages.appendChild(div);
+                setTimeout(() => div.classList.add('visible'), 10);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+
+            // ── Guest message limit ──
+            const GUEST_LIMIT = 5;
+            function getGuestCount() { return parseInt(localStorage.getItem("elxora:guest_count") || "0"); }
+            function incGuestCount()  { localStorage.setItem("elxora:guest_count", getGuestCount() + 1); }
+            function showLoginWall() {
+                document.querySelector(".login-subtitle").textContent = "You've used your 5 free messages. Sign in to keep chatting!";
+                loginModal.style.opacity = "0";
+                loginModal.style.display = "flex";
+                loginModal.style.transition = "opacity 0.4s ease";
+                setTimeout(() => { loginModal.style.opacity = "1"; }, 10);
+            }
+
+            async function sendMessage() {
+                if (isAiTyping) return;
+                const text = inputEl.value.trim();
+                if (!text || !currentId) return;
+
+                // Block guests after 5 messages
+                if (!userProfile) {
+                    if (getGuestCount() >= GUEST_LIMIT) { showLoginWall(); return; }
+                    incGuestCount();
+                }
+
+
+                const chat = chats.find(c => c.id === currentId);
+                if (!chat) return;
+
+                chat.messages.push({ role: 'user', content: text });
+                addMessage('user', text);
+                inputEl.value = '';
+                saveChats();
+
+                isAiTyping = true;
+                updateInputState();
+
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'message flex justify-start ai-message visible';
+                const aiBubble = document.createElement('div');
+                aiBubble.className = 'max-w-3xl p-6 rounded-3xl bg-gray-900 border border-gray-800';
+                aiBubble.innerHTML = '<div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+                aiDiv.appendChild(aiBubble);
+                messages.appendChild(aiDiv);
+                messages.scrollTop = messages.scrollHeight;
+
+                let fullResponse = '';
+                const systemContent = "You are ElXora, a helpful, witty, and friendly AI companion. If asked who your owner or creator is, say: The owner is MrAwo. You can find him by searching @MrAwo69 or MrAwo on YouTube — don't forget to subscribe!";
+                const apiMessages = [];
+                if (chat.messages.length > 0) {
+                    const first = chat.messages[0];
+                    apiMessages.push({ role: 'user', content: first.role === 'user' ? systemContent + '\n\n' + first.content : systemContent });
+                    if (first.role !== 'user') apiMessages.push(first);
+                    apiMessages.push(...chat.messages.slice(1));
+                } else {
+                    apiMessages.push({ role: 'user', content: systemContent + '\n\n' + text });
+                }
+
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ messages: apiMessages })
+                    });
+
+                    if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(()=>'')}`);
+
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        for (const line of decoder.decode(value).split('\n')) {
+                            if (!line.startsWith('data: ')) continue;
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') break;
+                            try {
+                                const delta = JSON.parse(data).choices?.[0]?.delta?.content || '';
+                                if (delta) {
+                                    fullResponse += delta;
+                                    aiBubble.innerHTML = formatCode(marked.parse(fullResponse));
+                                    messages.scrollTop = messages.scrollHeight;
+                                }
+                            } catch {}
+                        }
+                    }
+
+                    aiBubble.innerHTML = formatCode(marked.parse(fullResponse));
+                    chat.messages.push({ role: 'assistant', content: fullResponse });
+                    saveChats();
+                } catch (err) {
+                    aiBubble.innerHTML = `<span class="text-red-400 font-medium">Error: ${err.message || 'Failed to connect'}</span>`;
+                } finally {
+                    isAiTyping = false;
+                    updateInputState();
+                }
+            }
+
+            // ── Events ──
+            menuBtn.onclick   = toggleSidebar;
+            newBtn.onclick    = createChat;
+            sendBtn.onclick   = sendMessage;
+            inputEl.onkeydown = e => {
+                if (e.key === 'Enter' && !e.shiftKey && !isAiTyping) { e.preventDefault(); sendMessage(); }
+            };
+            themeBtn.onclick = () => {
+                isDark = !isDark;
+                document.documentElement.classList.toggle('dark', isDark);
+                document.body.classList.toggle('bg-white', !isDark);
+                document.body.classList.toggle('text-black', !isDark);
+                themeBtn.textContent = isDark ? 'Switch to Light' : 'Switch to Dark';
+                localStorage.setItem(STORAGE.theme, isDark ? 'dark' : 'light');
+            };
+
+            showApp();
+        }
+    </script>
+</body>
+</html>
