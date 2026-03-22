@@ -15,7 +15,7 @@ exports.handler = async (event) => {
         return { statusCode: 405, headers, body: 'Method Not Allowed' };
     }
 
-    const API_KEY = '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';
+    const API_KEY = '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';
 
     try {
         const { messages } = JSON.parse(event.body);
